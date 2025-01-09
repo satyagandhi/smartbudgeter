@@ -197,8 +197,6 @@ if expenses.empty:
 # In[97]:
 
 
-streamlit run .py
-
 
 # In[ ]:
 
