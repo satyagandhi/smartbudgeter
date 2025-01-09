@@ -1,27 +1,12 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[23]:
-
-
 import streamlit as st
 import pandas as pd
 import sqlite3
 from sklearn.linear_model import LinearRegression
-import matplotlib.pyplot as plt
 import numpy as np
-
-
-# In[25]:
-
 
 # SQLite database setup
 conn = sqlite3.connect("finance_tracker.db")
 c = conn.cursor()
-
-
-# In[27]:
-
 
 # Create tables for users and expenses
 c.execute("""
@@ -41,18 +26,10 @@ CREATE TABLE IF NOT EXISTS expenses (
 """)
 conn.commit()
 
-
-# In[29]:
-
-
 # Function for user authentication
 def authenticate_user(username, password):
     c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
     return c.fetchone()
-
-
-# In[31]:
-
 
 # Function for user registration
 def register_user(username, password):
@@ -63,27 +40,15 @@ def register_user(username, password):
     except sqlite3.IntegrityError:
         return False
 
-
-# In[33]:
-
-
-# Function to add expense
+# Function to add an expense
 def add_expense(username, date, category, amount):
     c.execute("INSERT INTO expenses (username, date, category, amount) VALUES (?, ?, ?, ?)", (username, date, category, amount))
     conn.commit()
-
-
-# In[35]:
-
 
 # Function to get expenses for a user
 def get_expenses(username):
     c.execute("SELECT date, category, amount FROM expenses WHERE username = ?", (username,))
     return pd.DataFrame(c.fetchall(), columns=["Date", "Category", "Amount"])
-
-
-# In[37]:
-
 
 # Function for AI prediction
 def predict_expenses(data):
@@ -97,9 +62,11 @@ def predict_expenses(data):
     next_day = data["Days"].max() + 30
     return model.predict([[next_day]])[0]
 
-
-# In[47]:
-
+# Initialize session state
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "username" not in st.session_state:
+    st.session_state["username"] = None
 
 # App structure
 st.title("Smart Budgeter: AI-Powered Personal Finance Tracker")
@@ -128,114 +95,43 @@ elif choice == "Login":
         else:
             st.error("Invalid username or password")
 
-if "logged_in" in st.session_state:
-    st.sidebar.success(f"Logged in as {st.session_state['username']}")
-
-
-# In[53]:
-
-
-# Dashboard
+# Dashboard access
 if choice == "Dashboard":
+    if not st.session_state["logged_in"]:
+        st.error("Please log in to access the Dashboard.")
+        st.stop()
     username = st.session_state["username"]
 
+    # Add Expense
+    st.subheader("Add Expense")
+    date = st.date_input("Date")
+    category = st.selectbox("Category", ["Food", "Transport", "Shopping", "Utilities", "Entertainment", "Others"])
+    amount = st.number_input("Amount", min_value=0.01, format="%.2f")
+    if st.button("Add Expense"):
+        add_expense(username, str(date), category, amount)
+        st.success("Expense added successfully!")
 
-# In[65]:
+    # View Summary
+    st.subheader("Expense Summary")
+    expenses = get_expenses(username)
+    if not expenses.empty:
+        st.dataframe(expenses)
 
+        # Total expenses
+        total = expenses["Amount"].sum()
+        st.subheader(f"Total Expenses: ${total:.2f}")
 
-# Add Expense
-st.subheader("Add Expense")
-date = st.date_input("Date")
-category = st.selectbox("Category", ["Food", "Transport", "Shopping", "Utilities", "Entertainment", "Others"])
-amount = st.number_input("Amount", min_value=0.01, format="%.2f")
-if st.button("Add Expense"):
-    add_expense(username, str(date), category, amount)
-    st.success("Expense added successfully!")
+        # Category-wise breakdown
+        st.bar_chart(expenses.groupby("Category")["Amount"].sum())
 
-
-# In[69]:
-
-
-# View Summary
-st.subheader("Expense Summary")
-expenses = get_expenses(username)
-if not expenses.empty:
-            st.dataframe(expenses)
-
-
-# In[71]:
-
-
-# Total expenses
-total = expenses["Amount"].sum()
-st.subheader(f"Total Expenses: ${total:.2f}")
-
-
-# In[75]:
-
-
-# Category-wise breakdown
-st.bar_chart(expenses.groupby("Category")["Amount"].sum())
-
-
-# In[95]:
-
-
-# AI Prediction
-prediction = predict_expenses(expenses)
-
-if isinstance(prediction, str):
-    st.info(prediction)
-else:
-    st.subheader(f"Predicted Expenses for Next Month: ${prediction:.2f}")
-
-# Check if the DataFrame is empty
-if expenses.empty:
-    st.warning("No expenses added yet!")
-
-
-# In[97]:
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
+        # AI Prediction
+        prediction = predict_expenses(expenses)
+        if isinstance(prediction, str):
+            st.info(prediction)
+        else:
+            st.subheader(f"Predicted Expenses for Next Month: ${prediction:.2f}")
+    else:
+        st.warning("No expenses added yet!")
 
 
 
