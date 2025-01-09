@@ -26,6 +26,26 @@ CREATE TABLE IF NOT EXISTS expenses (
 """)
 conn.commit()
 
+# Preload data (optional)
+def preload_data():
+    # Check if the table is empty
+    c.execute("SELECT * FROM users")
+    if not c.fetchall():
+        # Add a default user
+        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("demo_user", "password123"))
+        conn.commit()
+        # Add some example expenses
+        example_expenses = [
+            ("demo_user", "2025-01-01", "Food", 50.00),
+            ("demo_user", "2025-01-03", "Transport", 15.00),
+            ("demo_user", "2025-01-05", "Shopping", 100.00),
+        ]
+        c.executemany("INSERT INTO expenses (username, date, category, amount) VALUES (?, ?, ?, ?)", example_expenses)
+        conn.commit()
+
+# Call the preload function
+preload_data()
+
 # Function for user authentication
 def authenticate_user(username, password):
     c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
@@ -132,6 +152,7 @@ if choice == "Dashboard":
             st.subheader(f"Predicted Expenses for Next Month: ${prediction:.2f}")
     else:
         st.warning("No expenses added yet!")
+
 
 
 
