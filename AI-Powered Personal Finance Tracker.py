@@ -73,7 +73,10 @@ def add_expense(username, date, category, amount):
 # Function to get expenses for a user
 def get_expenses(username):
     c.execute("SELECT date, category, amount FROM expenses WHERE username = ?", (username,))
-    return pd.DataFrame(c.fetchall(), columns=["Date", "Category", "Amount"])
+    data = c.fetchall()
+    if not data:
+        return pd.DataFrame(columns=["Date", "Category", "Amount"])
+    return pd.DataFrame(data, columns=["Date", "Category", "Amount"])
 
 # Function for AI prediction
 def predict_expenses(data):
@@ -163,6 +166,7 @@ if choice == "Dashboard":
             st.subheader(f"Predicted Expenses for Next Month: ${prediction:.2f}")
     else:
         st.warning("No expenses added yet!")
+
 
 
 
