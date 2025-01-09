@@ -4,6 +4,10 @@ import sqlite3
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import hashlib
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Function to hash passwords
 def hash_password(password):
@@ -33,27 +37,35 @@ conn.commit()
 
 # Preload data (optional)
 def preload_data():
-    c.execute("SELECT * FROM users")
-    if not c.fetchall():
-        hashed_password = hash_password("password123")
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("demo_user", hashed_password))
-        conn.commit()
-        example_expenses = [
-            ("demo_user", "2025-01-01", "Food", 50.00),
-            ("demo_user", "2025-01-03", "Transport", 15.00),
-            ("demo_user", "2025-01-05", "Shopping", 100.00),
-        ]
-        c.executemany("INSERT INTO expenses (username, date, category, amount) VALUES (?, ?, ?, ?)", example_expenses)
-        conn.commit()
+    try:
+        c.execute("SELECT * FROM users")
+        if not c.fetchall():
+            hashed_password = hash_password("password123")
+            c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("demo_user", hashed_password))
+            conn.commit()
+            example_expenses = [
+                ("demo_user", "2025-01-01", "Food", 50.00),
+                ("demo_user", "2025-01-03", "Transport", 15.00),
+                ("demo_user", "2025-01-05", "Shopping", 100.00),
+            ]
+            c.executemany("INSERT INTO expenses (username, date, category, amount) VALUES (?, ?, ?, ?)", example_expenses)
+            conn.commit()
+            logging.debug("Preloaded data successfully.")
+    except Exception as e:
+        logging.error("Error preloading data: ", exc_info=True)
 
 # Call the preload function
 preload_data()
 
 # Function for user authentication
 def authenticate_user(username, password):
-    hashed_password = hash_password(password)
-    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, hashed_password))
-    return c.fetchone()
+    try:
+        hashed_password = hash_password(password)
+        c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, hashed_password))
+        return c.fetchone()
+    except Exception as e:
+        logging.error(f"Error authenticating user: {e}")
+        return None
 
 # Function for user registration
 def register_user(username, password):
@@ -67,28 +79,39 @@ def register_user(username, password):
 
 # Function to add an expense
 def add_expense(username, date, category, amount):
-    c.execute("INSERT INTO expenses (username, date, category, amount) VALUES (?, ?, ?, ?)", (username, date, category, amount))
-    conn.commit()
+    try:
+        c.execute("INSERT INTO expenses (username, date, category, amount) VALUES (?, ?, ?, ?)", (username, date, category, amount))
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Error adding expense: {e}")
 
 # Function to get expenses for a user
 def get_expenses(username):
-    c.execute("SELECT date, category, amount FROM expenses WHERE username = ?", (username,))
-    data = c.fetchall()
-    if not data:
+    try:
+        c.execute("SELECT date, category, amount FROM expenses WHERE username = ?", (username,))
+        data = c.fetchall()
+        if not data:
+            return pd.DataFrame(columns=["Date", "Category", "Amount"])
+        return pd.DataFrame(data, columns=["Date", "Category", "Amount"])
+    except Exception as e:
+        logging.error(f"Error fetching expenses: {e}")
         return pd.DataFrame(columns=["Date", "Category", "Amount"])
-    return pd.DataFrame(data, columns=["Date", "Category", "Amount"])
 
 # Function for AI prediction
 def predict_expenses(data):
     if len(data) < 2:
         return "Not enough data for prediction"
-    data["Date"] = pd.to_datetime(data["Date"])
-    data = data.sort_values(by="Date")
-    data["Days"] = (data["Date"] - data["Date"].min()).dt.days
-    model = LinearRegression()
-    model.fit(data[["Days"]], data["Amount"])
-    next_day = data["Days"].max() + 30
-    return model.predict([[next_day]])[0]
+    try:
+        data["Date"] = pd.to_datetime(data["Date"])
+        data = data.sort_values(by="Date")
+        data["Days"] = (data["Date"] - data["Date"].min()).dt.days
+        model = LinearRegression()
+        model.fit(data[["Days"]], data["Amount"])
+        next_day = data["Days"].max() + 30
+        return model.predict([[next_day]])[0]
+    except Exception as e:
+        logging.error(f"Error predicting expenses: {e}")
+        return "Prediction failed"
 
 # Initialize session state
 if "logged_in" not in st.session_state:
@@ -166,6 +189,7 @@ if choice == "Dashboard":
             st.subheader(f"Predicted Expenses for Next Month: ${prediction:.2f}")
     else:
         st.warning("No expenses added yet!")
+
 
 
 
