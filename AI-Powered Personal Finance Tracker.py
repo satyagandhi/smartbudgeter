@@ -3,6 +3,11 @@ import pandas as pd
 import sqlite3
 from sklearn.linear_model import LinearRegression
 import numpy as np
+import hashlib
+
+# Function to hash passwords
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 # SQLite database setup
 conn = sqlite3.connect("finance_tracker.db")
@@ -28,13 +33,11 @@ conn.commit()
 
 # Preload data (optional)
 def preload_data():
-    # Check if the table is empty
     c.execute("SELECT * FROM users")
     if not c.fetchall():
-        # Add a default user
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("demo_user", "password123"))
+        hashed_password = hash_password("password123")
+        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("demo_user", hashed_password))
         conn.commit()
-        # Add some example expenses
         example_expenses = [
             ("demo_user", "2025-01-01", "Food", 50.00),
             ("demo_user", "2025-01-03", "Transport", 15.00),
@@ -48,13 +51,15 @@ preload_data()
 
 # Function for user authentication
 def authenticate_user(username, password):
-    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
+    hashed_password = hash_password(password)
+    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, hashed_password))
     return c.fetchone()
 
 # Function for user registration
 def register_user(username, password):
     try:
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+        hashed_password = hash_password(password)
+        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -115,12 +120,18 @@ elif choice == "Login":
         else:
             st.error("Invalid username or password")
 
-# Dashboard access
 if choice == "Dashboard":
     if not st.session_state["logged_in"]:
         st.error("Please log in to access the Dashboard.")
         st.stop()
     username = st.session_state["username"]
+
+    # Logout Button
+    if st.button("Logout"):
+        st.session_state["logged_in"] = False
+        st.session_state["username"] = None
+        st.success("Logged out successfully!")
+        st.stop()
 
     # Add Expense
     st.subheader("Add Expense")
@@ -152,6 +163,7 @@ if choice == "Dashboard":
             st.subheader(f"Predicted Expenses for Next Month: ${prediction:.2f}")
     else:
         st.warning("No expenses added yet!")
+
 
 
 
